@@ -1,24 +1,133 @@
-const router = require("express").Router()
+const { User, Thought} = require('../models');
 
-const {
-    getThoughts,
-    getSingleThought,
-    createThought,
-    deleteThought,
-    addReaction,
-    removeReaction,
-    editThought,
-  } = require('../../controllers/thought-controller');
+const thoughtController = {
+  getThoughts(req, res) {
+    Thought.find()
+      .select('-_v')
+      .then((dbThoughtData) => {
+        res.json(dbThoughtData);
+      })
+      .catch((err) =>{
+        console.log(err);
+        res.status(500).json(err);
+      });
+  },
 
-  // localhost/api/thoughts/
-router.route("/").get(getThoughts).post(createThought)
+getSingleThought(req, res){
+  Thought.findOne({
+    _id: req.params.thoughtId
+  })
+  .select('-_v')
+  .populate('reactions')
+  .populate('users')
+  .then((dbThoughtData) => {
+    if (!dbThoughtData) {
+      return res.status(404).json({
+        message: 'No thought with this id!'
+      });
+    }
+    res.json(dbThoughtData);
+  })
+  .catch((err) => {
+    console.log(err);
+    res.status(500).json(err);
+  });
+},
 
-// localhost/api/thought/:userId
-router.route("/:thoughtId").get(getSingleThought).put(editThought).delete(deleteThought)
+createThought(req, res) {
+  Thought.create(req.body)
+   .then((dbThoughtData) => {
+     res.json(dbThoughtData);
+   })
+   .catch((err) => {
+    console.log(err);
+    res.status(500).json(err);
+  });
+},
 
-router.route("/:thoughtId/reactions").post(addReaction)
+editThought(req, res) {
+  Thought.findOneAndUpdate(
+    {_id: req.params.thoughtId },
+    {
+      $set: req.body,
+    },
+    {
+      runValidators: true,
+      new: true,
+    }
+  )
+    .then((dbThoughtData) => {
+      if (!dbThoughtData) {
+        return res.status(404).json({
+          message: 'No thought with this id!'
+        });
+      }
+      res.json(dbThoughtData);
+    })
+    .catch((err) => {
+      console.log(err);
+      res.status(500).json(err);
+    });
+},
 
-// localhost/api/users/:userId/friends/:friendId
-router.route("/:thoughtId/reactions/:reactionId").delete(removeReaction)
+deleteThought(req, res) {
+  Thought.findOneAndDelete({
+    _id: req.params.thoughtId})
+    .then((dbThoughtData)=>{
+      if (!dbThoughtData) {
+        return res.status(404).json({
+          message: 'no thought with this id!'
+        });
+      }
+      return User.deleteMany({
+        _id: { $in: dbThoughtData.thoughts} });
+    })
+    .then(() => {
+      res.json({ message: 'Thought and associated Users deleted!'});
+    })
+    .catch((err)=>{
+      console.log(err);
+      res.status(500).json(err);
+    });
+},
 
-module.exports = router
+addReaction(req, res) {
+ Thought.findOneAndUpdate(
+   {_id: req.params.thoughtId},
+   { $addToSet: 
+    {reactions: req.params.reactionId}},
+    {new: true})
+    .then((dbThoughtData)=>{
+      if(!dbThoughtData) {
+        return res.status(404).json({
+          message: 'No thought with this id!'});
+      }
+      res.json(dbThoughtData);
+    })
+    .catch((err)=>{
+      console.log(err);
+      res.status(500).json(err);
+    });
+},
+
+removeReaction(req, res){
+  Thought.findOneAndUpdate(
+    {_id: req.params.thoughtId},
+    { $pull: 
+      {reactions: req.params.reactionI}},
+      {new: true})
+      .then((dbThoughtData)=>{
+        if(!dbThoughtData){
+          return res.status(404).json({
+            message: 'No thought with this id!'});
+        }
+        res.json(dbThoughtData);
+      })
+      .catch((err)=>{
+        console.log(err);
+        res.status(500).json(err);
+      });
+  },
+};
+
+module.exports = thoughtController;
