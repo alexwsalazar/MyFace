@@ -19,12 +19,10 @@ getSingleThought(req, res){
   })
   .select('-_v')
   .populate('reactions')
-  .populate('users')
   .then((dbThoughtData) => {
     if (!dbThoughtData) {
       return res.status(404).json({
-        message: 'No thought with this id!'
-      });
+        message: 'No thought with this id!'});
     }
     res.json(dbThoughtData);
   })
